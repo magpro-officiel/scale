@@ -1,5 +1,6 @@
 from datetime import datetime
 from functools import partial
+from kivy.network.urlrequest import UrlRequest as OriginalUrlRequest
 import hashlib
 import json
 import os
@@ -83,6 +84,23 @@ except Exception as e:
     sys.exit(1)
 # ============================================
 
+class CustomUrlRequest(OriginalUrlRequest):
+
+    def __init__(self, url, **kwargs):
+        from kivymd.app import MDApp
+        app = MDApp.get_running_app()
+        headers = kwargs.get('req_headers', {})
+        if not headers:
+            headers = {'Content-type': 'application/json'}
+        if app and hasattr(app, 'store') and app.store and app.store.exists('config'):
+            pin = app.store.get('config').get('server_pin', '')
+            if pin:
+                headers['X-Server-PIN'] = str(pin)
+        kwargs['req_headers'] = headers
+        super().__init__(url, **kwargs)
+
+UrlRequest = CustomUrlRequest
+
 class SmartTextField(MDTextField):
 
     def __init__(self, **kwargs):
@@ -155,6 +173,7 @@ class SmartTextField(MDTextField):
 # ============================================
 KV_BUILDER = '\n<ProductItem>:\n    orientation: \'vertical\'\n    size_hint_y: None\n    height: dp(100)\n    padding: [dp(10), dp(5)]\n    \n    MDCard:\n        orientation: \'horizontal\'\n        radius: [15]\n        elevation: 2\n        ripple_behavior: True\n        on_release: root.on_tap()\n        md_bg_color: 1, 1, 1, 1\n        padding: dp(10)\n        spacing: dp(15)\n\n        MDFloatLayout:\n            size_hint: None, None\n            size: dp(70), dp(70)\n            pos_hint: {\'center_y\': .5}\n            \n            MDCard:\n                radius: [10]\n                md_bg_color: 0.95, 0.95, 0.95, 1\n                size_hint: 1, 1\n                pos_hint: {\'center_x\': .5, \'center_y\': .5}\n                elevation: 0\n\n            FitImage:\n                source: root.image_url\n                radius: [10]\n                mipmap: True\n                pos_hint: {\'center_x\': .5, \'center_y\': .5}\n                opacity: 1 if root.image_url else 0\n                \n            MDIcon:\n                icon: "scale"\n                halign: "center"\n                font_size: "36sp"\n                theme_text_color: "Hint"\n                pos_hint: {\'center_x\': .5, \'center_y\': .5}\n                opacity: 0 if root.image_url else 1\n\n        MDBoxLayout:\n            orientation: \'vertical\'\n            pos_hint: {\'center_y\': .5}\n            adaptive_height: True\n            spacing: dp(5)\n            \n            MDLabel:\n                text: root.text_name\n                font_style: \'Subtitle1\'\n                bold: True\n                theme_text_color: "Custom"\n                text_color: 0.2, 0.2, 0.2, 1\n                font_name: "AppFont"\n                halign: "left"\n                adaptive_height: True\n                text_size: self.width, None\n                max_lines: 2\n                line_height: 1.1\n            \n            MDLabel:\n                text: root.text_price\n                font_style: \'H6\'\n                theme_text_color: "Custom"\n                text_color: 0, 0.7, 0, 1\n                bold: True\n                font_name: "AppFont"\n                halign: "left"\n                adaptive_height: True\n\n<LoginScreen>:\n    name: \'login\'\n    \n    MDFloatLayout:\n        md_bg_color: 0.98, 0.98, 0.98, 1\n        \n        MDBoxLayout:\n            orientation: \'horizontal\'\n            adaptive_size: True\n            pos_hint: {\'top\': 0.98, \'right\': 0.98}\n            spacing: dp(5)\n            padding: dp(10)\n            \n            MDIcon:\n                icon: \'circle\'\n                theme_text_color: "Custom"\n                text_color: (0, 0.8, 0, 1) if app.is_connected else (0.8, 0, 0, 1)\n                font_size: "14sp"\n                pos_hint: {\'center_y\': 0.5}\n                \n            MDIconButton:\n                icon: \'cog\'\n                on_release: app.open_settings_dialog()\n\n        MDBoxLayout:\n            orientation: \'vertical\'\n            size_hint: 0.85, None\n            height: dp(450)\n            pos_hint: {\'center_x\': 0.5, \'center_y\': 0.5}\n            spacing: dp(20)\n            \n            MDIcon:\n                icon: \'scale-balance\'\n                font_size: \'90sp\'\n                halign: \'center\'\n                theme_text_color: "Primary"\n            \n            MDLabel:\n                text: "MagPro Scale"\n                halign: \'center\'\n                font_style: "H4"\n                bold: True\n                font_name: "AppFont"\n                \n            SmartTextField:\n                id: user_field\n                text: "ADMIN"\n                hint_text: "Utilisateur"\n                icon_right: "account"\n                mode: "fill"\n                font_name: "AppFont"\n                radius: [10, 10, 0, 0]\n\n            SmartTextField:\n                id: pass_field\n                hint_text: "Mot de passe"\n                password: True\n                icon_right: "key"\n                mode: "fill"\n                font_name: "AppFont"\n                radius: [0, 0, 10, 10]\n\n            MDRaisedButton:\n                text: "SE CONNECTER"\n                font_size: "18sp"\n                size_hint_x: 1\n                height: dp(55)\n                font_name: "AppFont"\n                md_bg_color: app.theme_cls.primary_color\n                on_release: app.do_login(user_field.get_value(), pass_field.get_value())\n\n            MDLabel:\n                text: "MagPro Scale v7.3.0 © 2026"\n                halign: \'center\'\n                font_style: "Caption"\n                theme_text_color: "Hint"\n                font_name: "AppFont"\n                size_hint_y: None\n                height: dp(20)\n\n<MainScaleScreen>:\n    name: \'scale\'\n    \n    MDBottomNavigation:\n        id: bottom_nav\n        selected_color_background: "blue"\n        text_color_active: 0, 0, 0, 1\n        font_name: "AppFont"\n\n        MDBottomNavigationItem:\n            name: \'screen_products\'\n            text: \'Produits\'\n            icon: \'package-variant\'\n            \n            MDBoxLayout:\n                orientation: \'vertical\'\n                md_bg_color: 0.98, 0.98, 0.98, 1\n                \n                MDBoxLayout:\n                    size_hint_y: None\n                    height: dp(70)\n                    padding: [dp(10), dp(5)]\n                    spacing: dp(10)\n                    md_bg_color: 1, 1, 1, 1\n                    elevation: 1\n                    \n                    MDIconButton:\n                        icon: \'logout\'\n                        theme_text_color: "Error"\n                        on_release: app.logout()\n                        pos_hint: {\'center_y\': 0.5}\n                        \n                    SmartTextField:\n                        id: search_box\n                        hint_text: "Rechercher..."\n                        mode: "rectangle"\n                        icon_right: "magnify"\n                        font_name: "AppFont"\n                        size_hint_y: None\n                        height: dp(45)\n                        pos_hint: {\'center_y\': 0.5}\n                        on_text: app.filter_products(self.get_value())\n                        \n                    MDIcon:\n                        icon: \'circle\'\n                        theme_text_color: "Custom"\n                        text_color: (0, 0.8, 0, 1) if app.is_connected else (0.8, 0, 0, 1)\n                        font_size: "16sp"\n                        pos_hint: {\'center_y\': 0.5}\n\n                RecycleView:\n                    id: rv\n                    viewclass: \'ProductItem\'\n                    bar_width: dp(0)\n                    \n                    RecycleBoxLayout:\n                        default_size: None, dp(100)\n                        default_size_hint: 1, None\n                        size_hint_y: None\n                        height: self.minimum_height\n                        orientation: \'vertical\'\n                        spacing: dp(2)\n                        padding: [0, dp(10), 0, dp(80)]\n\n        MDBottomNavigationItem:\n            name: \'screen_weigh\'\n            text: \'Balance\'\n            icon: \'scale\'\n            \n            MDBoxLayout:\n                orientation: \'vertical\'\n                spacing: dp(10)\n                padding: dp(15)\n                md_bg_color: 0.98, 0.98, 0.98, 1\n                \n                MDCard:\n                    orientation: \'vertical\'\n                    size_hint_y: None\n                    height: dp(140)\n                    padding: dp(15)\n                    radius: [15]\n                    elevation: 1\n                    md_bg_color: 1, 1, 1, 1\n                    \n                    MDLabel:\n                        text: "PRODUIT SÉLECTIONNÉ"\n                        halign: \'center\'\n                        font_style: \'Overline\'\n                        font_name: "AppFont"\n                        theme_text_color: \'Secondary\'\n                        size_hint_y: None\n                        height: dp(20)\n                        \n                    MDLabel:\n                        id: lbl_name\n                        text: "---"\n                        halign: \'center\'\n                        font_style: \'H5\'\n                        bold: True\n                        font_name: "AppFont"\n                        theme_text_color: "Primary"\n                        shorten: True\n                        size_hint_y: 1\n                        \n                    MDBoxLayout:\n                        size_hint_y: None\n                        height: dp(30)\n                        MDLabel:\n                            text: "PRIX / KG:"\n                            font_name: "AppFont"\n                            halign: \'left\'\n                            font_style: \'Body2\'\n                        MDLabel:\n                            id: lbl_price_unit\n                            text: "0.00 DA"\n                            halign: \'right\'\n                            bold: True\n                            theme_text_color: "Custom"\n                            text_color: 0, 0.6, 0, 1\n                            font_size: "18sp"\n\n                MDGridLayout:\n                    cols: 2\n                    spacing: dp(10)\n                    size_hint_y: None\n                    height: dp(80)\n\n                    MDCard:\n                        padding: dp(5)\n                        radius: [10]\n                        md_bg_color: 1, 1, 1, 1\n                        MDTextField:\n                            id: txt_weight\n                            hint_text: "POIDS (g)"\n                            font_size: "26sp"\n                            halign: \'center\'\n                            input_filter: \'int\'\n                            mode: "line"\n                            line_color_normal: 0,0,0,0\n                            line_color_focus: 0,0,0,0\n                            readonly: True\n                            font_name: "AppFont"\n\n                    MDCard:\n                        padding: dp(10)\n                        radius: [10]\n                        md_bg_color: 0.1, 0.1, 0.1, 1\n                        MDBoxLayout:\n                            orientation: \'vertical\'\n                            MDLabel:\n                                text: "TOTAL"\n                                color: 1, 1, 1, 0.7\n                                font_style: \'Caption\'\n                                halign: \'center\'\n                            MDLabel:\n                                id: lbl_total\n                                text: "0.00"\n                                halign: \'center\'\n                                color: 0, 1, 0, 1\n                                font_style: \'H5\'\n                                bold: True\n\n                MDGridLayout:\n                    cols: 3\n                    spacing: dp(8)\n                    size_hint_y: 1\n                    \n                    MDRaisedButton:\n                        text: "7"\n                        font_size: "24sp"\n                        size_hint: 1, 1\n                        on_release: app.add_digit("7")\n                        md_bg_color: 1, 1, 1, 1\n                        text_color: 0, 0, 0, 1\n                        elevation: 1\n                    MDRaisedButton:\n                        text: "8"\n                        font_size: "24sp"\n                        size_hint: 1, 1\n                        on_release: app.add_digit("8")\n                        md_bg_color: 1, 1, 1, 1\n                        text_color: 0, 0, 0, 1\n                        elevation: 1\n                    MDRaisedButton:\n                        text: "9"\n                        font_size: "24sp"\n                        size_hint: 1, 1\n                        on_release: app.add_digit("9")\n                        md_bg_color: 1, 1, 1, 1\n                        text_color: 0, 0, 0, 1\n                        elevation: 1\n                        \n                    MDRaisedButton:\n                        text: "4"\n                        font_size: "24sp"\n                        size_hint: 1, 1\n                        on_release: app.add_digit("4")\n                        md_bg_color: 1, 1, 1, 1\n                        text_color: 0, 0, 0, 1\n                        elevation: 1\n                    MDRaisedButton:\n                        text: "5"\n                        font_size: "24sp"\n                        size_hint: 1, 1\n                        on_release: app.add_digit("5")\n                        md_bg_color: 1, 1, 1, 1\n                        text_color: 0, 0, 0, 1\n                        elevation: 1\n                    MDRaisedButton:\n                        text: "6"\n                        font_size: "24sp"\n                        size_hint: 1, 1\n                        on_release: app.add_digit("6")\n                        md_bg_color: 1, 1, 1, 1\n                        text_color: 0, 0, 0, 1\n                        elevation: 1\n                        \n                    MDRaisedButton:\n                        text: "1"\n                        font_size: "24sp"\n                        size_hint: 1, 1\n                        on_release: app.add_digit("1")\n                        md_bg_color: 1, 1, 1, 1\n                        text_color: 0, 0, 0, 1\n                        elevation: 1\n                    MDRaisedButton:\n                        text: "2"\n                        font_size: "24sp"\n                        size_hint: 1, 1\n                        on_release: app.add_digit("2")\n                        md_bg_color: 1, 1, 1, 1\n                        text_color: 0, 0, 0, 1\n                        elevation: 1\n                    MDRaisedButton:\n                        text: "3"\n                        font_size: "24sp"\n                        size_hint: 1, 1\n                        on_release: app.add_digit("3")\n                        md_bg_color: 1, 1, 1, 1\n                        text_color: 0, 0, 0, 1\n                        elevation: 1\n                        \n                    MDRaisedButton:\n                        text: "C"\n                        font_size: "24sp"\n                        size_hint: 1, 1\n                        md_bg_color: 0.9, 0.9, 0.9, 1\n                        text_color: 0.8, 0, 0, 1\n                        on_release: app.clear_weight()\n                        elevation: 1\n                    MDRaisedButton:\n                        text: "0"\n                        font_size: "24sp"\n                        size_hint: 1, 1\n                        on_release: app.add_digit("0")\n                        md_bg_color: 1, 1, 1, 1\n                        text_color: 0, 0, 0, 1\n                        elevation: 1\n                    MDIconButton:\n                        icon: "backspace"\n                        size_hint: 1, 1\n                        icon_size: "30sp"\n                        on_release: app.backspace()\n                        theme_text_color: "Custom"\n                        text_color: 0.3, 0.3, 0.3, 1\n\n                MDFillRoundFlatButton:\n                    text: "IMPRIMER"\n                    font_name: "AppFont"\n                    font_size: "20sp"\n                    size_hint_x: 1\n                    height: dp(55)\n                    md_bg_color: 0, 0.7, 0, 1\n                    on_release: app.send_print_command()\n'
 # ============================================
+
 class ProductItem(RecycleDataViewBehavior, MDBoxLayout):
     index = None
     text_name = StringProperty('')
@@ -196,6 +215,7 @@ class ScaleApp(MDApp):
     cache_store = None
     activation_dialog_ref = None
     heartbeat_event = None
+    stop_heartbeat = False
 
     def build(self):
         self.theme_cls.primary_palette = 'Blue'
@@ -321,7 +341,57 @@ class ScaleApp(MDApp):
 
     def start_heartbeat(self):
         if not self.heartbeat_event:
-            self.heartbeat_event = Clock.schedule_interval(self.check_connection_status, 5)
+            self.stop_heartbeat = False
+            import threading
+            threading.Thread(target=self.heartbeat_loop, daemon=True).start()
+            self.heartbeat_event = True
+
+    def heartbeat_loop(self):
+        import time
+        from kivy.clock import Clock
+        while not self.stop_heartbeat:
+            Clock.schedule_once(lambda dt: self._run_socket_ping_logic(), 0)
+            time.sleep(5)
+
+    def _run_socket_ping_logic(self):
+        self._ping_wifi()
+
+    def _ping_wifi(self):
+        if not self.wifi_ip:
+            self._ping_ethernet()
+            return
+        url = f'http://{self.wifi_ip}:{self.server_port}/api/ping'
+        UrlRequest(url, on_success=lambda r, res: self._finalize_ping(True, self.wifi_ip), on_failure=lambda r, e: self._ping_ethernet(), on_error=lambda r, e: self._ping_ethernet(), timeout=2)
+
+    def _ping_ethernet(self):
+        if not self.ethernet_ip:
+            self._finalize_ping(False, None)
+            return
+        import re
+        if re.search('[a-zA-Z]', self.ethernet_ip):
+            clean_host = self.ethernet_ip.replace('https://', '').replace('http://', '').strip('/')
+            url = f'https://{clean_host}/api/ping'
+        else:
+            url = f'http://{self.ethernet_ip}:{self.server_port}/api/ping'
+
+        def check_fail(req, err):
+            if req.resp_status == 403:
+                self.show_alert('Erreur', 'Code PIN du Serveur Incorrect!')
+            self._finalize_ping(False, None)
+        UrlRequest(url, on_success=lambda r, res: self._finalize_ping(True, self.ethernet_ip), on_failure=check_fail, on_error=check_fail, timeout=4)
+
+    def _finalize_ping(self, success, confirmed_ip):
+        self.is_connected = success
+        if success and confirmed_ip:
+            self.current_ip_index = 0
+            if confirmed_ip not in self.available_ips:
+                self.available_ips.insert(0, confirmed_ip)
+            else:
+                self.available_ips.remove(confirmed_ip)
+                self.available_ips.insert(0, confirmed_ip)
+
+    def on_stop(self):
+        self.stop_heartbeat = True
 
     def check_connection_status(self, dt):
         if not self.available_ips:
@@ -424,7 +494,7 @@ class ScaleApp(MDApp):
             original_callback(req, res)
 
     def open_settings_dialog(self):
-        content_box = MDBoxLayout(orientation='vertical', size_hint_y=None, height=dp(480))
+        content_box = MDBoxLayout(orientation='vertical', size_hint_y=None, height=dp(520))
         scroll = MDScrollView()
         list_layout = MDList()
         import webbrowser
@@ -437,14 +507,30 @@ class ScaleApp(MDApp):
         header_net = OneLineIconListItem(text='Configuration Réseau', bg_color=(0.95, 0.95, 0.95, 1))
         header_net.add_widget(IconLeftWidget(icon='lan'))
         list_layout.add_widget(header_net)
-        self.tf_wifi = MDTextField(text=self.wifi_ip, hint_text='IP WIFI', mode='rectangle')
+        saved_pin = self.store.get('config').get('server_pin', '') if self.store.exists('config') else ''
+        self.tf_wifi = MDTextField(text=self.wifi_ip, hint_text='IP WIFI (Local)', mode='rectangle')
         item_wifi = MDBoxLayout(padding=dp(20), size_hint_y=None, height=dp(80))
         item_wifi.add_widget(self.tf_wifi)
         list_layout.add_widget(item_wifi)
-        self.tf_eth = MDTextField(text=self.ethernet_ip, hint_text='IP ETHERNET', mode='rectangle')
+        self.tf_eth = MDTextField(text=self.ethernet_ip, hint_text='IP ETHERNET (Ext/Internet)', mode='rectangle')
         item_eth = MDBoxLayout(padding=dp(20), size_hint_y=None, height=dp(80))
         item_eth.add_widget(self.tf_eth)
         list_layout.add_widget(item_eth)
+        self.tf_pin = MDTextField(text=str(saved_pin), hint_text='Code PIN (Cloudflare)', mode='rectangle', password=True, icon_right='lock-outline')
+        item_pin = MDBoxLayout(padding=dp(20), size_hint_y=None, height=dp(80))
+        item_pin.add_widget(self.tf_pin)
+        list_layout.add_widget(item_pin)
+
+        def on_eth_change(instance, text):
+            import re
+            if re.search('[a-zA-Z]', text):
+                self.tf_pin.opacity = 1
+                self.tf_pin.disabled = False
+            else:
+                self.tf_pin.opacity = 0
+                self.tf_pin.disabled = True
+        self.tf_eth.bind(text=on_eth_change)
+        on_eth_change(self.tf_eth, self.tf_eth.text)
         header_print = OneLineIconListItem(text='Configuration Étiquette', bg_color=(0.95, 0.95, 0.95, 1))
         header_print.add_widget(IconLeftWidget(icon='printer-settings'))
         list_layout.add_widget(header_print)
@@ -467,20 +553,35 @@ class ScaleApp(MDApp):
         scroll.add_widget(list_layout)
         content_box.add_widget(scroll)
 
+        def force_text_wrap(dt):
+            from kivymd.uix.list import BaseListItem
+            for item in list_layout.children:
+                if isinstance(item, BaseListItem):
+                    for child in item.walk():
+                        if isinstance(child, MDLabel):
+                            child.shorten = False
+                            child.max_lines = 3
+                            child.bind(width=lambda inst, width: setattr(inst, 'text_size', (width, None)))
+        
+        Clock.schedule_once(force_text_wrap, 0.1)
+
         def save(x):
             self.wifi_ip = self.tf_wifi.text.strip()
             self.ethernet_ip = self.tf_eth.text.strip()
+            server_pin = self.tf_pin.text.strip()
             self.available_ips = []
             if self.wifi_ip and self.is_valid_ip(self.wifi_ip):
                 self.available_ips.append(self.wifi_ip)
             if self.ethernet_ip and self.is_valid_ip(self.ethernet_ip):
                 self.available_ips.append(self.ethernet_ip)
             self.current_ip_index = 0
-            self.store.put('config', wifi_ip=self.wifi_ip, eth_ip=self.ethernet_ip, sticker_size=self.sticker_size)
+            self.store.put('config', wifi_ip=self.wifi_ip, eth_ip=self.ethernet_ip, sticker_size=self.sticker_size, server_pin=server_pin)
             if self.dialog:
                 self.dialog.dismiss()
             self.show_alert('Succès', 'Paramètres enregistrés')
-        self.dialog = MDDialog(title='Paramètres', type='custom', content_cls=content_box, buttons=[MDFlatButton(text='ANNULER', on_release=lambda x: self.dialog.dismiss()), MDRaisedButton(text='SAUVEGARDER', md_bg_color=(0, 0.7, 0, 1), on_release=save)], size_hint=(0.9, 0.8))
+            from kivy.clock import Clock
+            Clock.schedule_once(lambda dt: self._run_socket_ping_logic(), 0.5)
+        self.dialog = MDDialog(title='Paramètres', type='custom', content_cls=content_box, buttons=[MDFlatButton(text='ANNULER', on_release=lambda x: self.dialog.dismiss()), MDRaisedButton(text='SAUVEGARDER', md_bg_color=(0, 0.7, 0, 1), on_release=save)], size_hint=(0.95, 0.9))
         self.dialog.open()
 
     def do_login(self, username, password):
@@ -512,7 +613,7 @@ class ScaleApp(MDApp):
         self.selected_product = None
 
     def fetch_products(self):
-        self.send_request('/api/products', 'GET', on_success=self.on_products_loaded, on_failure=self.on_products_fail)
+        self.send_request('/api/products?limit=999999', 'GET', on_success=self.on_products_loaded, on_failure=self.on_products_fail)
 
     def on_products_fail(self, req, err):
         log_msg(f'Products Fail: {err}', 'ERROR')
@@ -543,6 +644,15 @@ class ScaleApp(MDApp):
             return ''
 
     def on_products_loaded(self, req, res):
+        if isinstance(res, dict):
+            if 'data' in res and isinstance(res['data'], list):
+                res = res['data']
+            elif 'products' in res and isinstance(res['products'], list):
+                res = res['products']
+            else:
+                res = list(res.values())
+        if not isinstance(res, list):
+            res = []
         if res and isinstance(res, list):
             self.cache_store.put('products_data', items=res)
         self.all_products = []
